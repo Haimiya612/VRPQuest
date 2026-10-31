@@ -1,3 +1,4 @@
+
 package com.lex.vrpquest
 
 import android.content.Intent
@@ -9,16 +10,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lex.vrpquest.Utils.MirrorConfig
+import com.lex.vrpquest.Utils.MirrorConfigStore
+import kotlinx.coroutines.launch
 
 private val Background = Color(0xFF101319)
 private val Panel = Color(0xFF1B222D)
@@ -81,7 +87,6 @@ fun RookieDashboard(
             .background(Background)
     ) {
 
-        // Sidebar
         Column(
             modifier = Modifier
                 .width(220.dp)
@@ -104,18 +109,12 @@ fun RookieDashboard(
 
             Spacer(Modifier.height(25.dp))
 
-            listOf(
-                "Home",
-                "Library",
-                "Queue",
-                "Settings"
-            ).forEach { item ->
-
+            listOf("Home", "Library", "Queue", "Settings").forEach {
                 NavigationButton(
-                    title = item,
-                    selected = selected == item
+                    title = it,
+                    selected = selected == it
                 ) {
-                    selected = item
+                    selected = it
                 }
             }
 
@@ -128,13 +127,11 @@ fun RookieDashboard(
             )
         }
 
-        // Main content
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(28.dp)
         ) {
-
             Text(
                 selected,
                 fontSize = 32.sp,
@@ -144,7 +141,6 @@ fun RookieDashboard(
             Spacer(Modifier.height(12.dp))
 
             when (selected) {
-
                 "Home" -> {
                     Text(
                         "Welcome to Rookie Quest.",
@@ -154,8 +150,7 @@ fun RookieDashboard(
                     Spacer(Modifier.height(24.dp))
 
                     Row(
-                        horizontalArrangement =
-                            Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         DashboardCard(
                             "Local installation",
@@ -171,7 +166,7 @@ fun RookieDashboard(
 
                         DashboardCard(
                             "Online library",
-                            "Online catalog integration is coming."
+                            "Browse the online game catalog."
                         ) {
                             selected = "Library"
                         }
@@ -193,11 +188,6 @@ fun RookieDashboard(
                         "No catalog connected yet.",
                         color = Color.LightGray
                     )
-
-                    Text(
-                        "The online catalog engine will be added separately.",
-                        color = Color.Gray
-                    )
                 }
 
                 "Queue" -> {
@@ -208,18 +198,227 @@ fun RookieDashboard(
                 }
 
                 "Settings" -> {
+                    MirrorSettings()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MirrorSettings() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var configUrl by remember { mutableStateOf("") }
+    var jsonInput by remember { mutableStateOf("") }
+
+    var savedConfig by remember {
+        mutableStateOf(
+            runCatching {
+                MirrorConfigStore.load(context)
+            }.getOrNull()
+        )
+    }
+
+    var status by remember {
+        mutableStateOf(
+            if (savedConfig != null) {
+                "A mirror configuration is saved."
+            } else {
+                "No mirror configured."
+            }
+        )
+    }
+
+    var busy by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+
+        Text(
+            "Mirror Configuration",
+            fontSize = 23.sp,
+            color = Color.White
+        )
+
+        Text(
+            "Connect your VRP-compatible public mirror.",
+            color = Color.LightGray
+        )
+
+        HorizontalDivider(color = Color.DarkGray)
+
+        Text(
+            "Load configuration from URL",
+            color = Accent,
+            fontSize = 17.sp
+        )
+
+        OutlinedTextField(
+            value = configUrl,
+            onValueChange = { configUrl = it },
+            label = { Text("Configuration URL") },
+            placeholder = {
+                Text("https://example.com/config.json")
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Button(
+            enabled = !busy && configUrl.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    busy = true
+                    status = "Downloading configuration..."
+
+                    try {
+                        val config =
+                            MirrorConfigStore.fetchFromUrl(configUrl)
+
+                        MirrorConfigStore.save(context, config)
+                        savedConfig = config
+                        status = "Configuration downloaded and saved."
+                    } catch (e: Exception) {
+                        status = "Failed: ${e.message}"
+                    }
+
+                    busy = false
+                }
+            }
+        ) {
+            Text("Load URL and Save")
+        }
+
+        HorizontalDivider(color = Color.DarkGray)
+
+        Text(
+            "Or paste configuration JSON",
+            color = Accent,
+            fontSize = 17.sp
+        )
+
+        OutlinedTextField(
+            value = jsonInput,
+            onValueChange = { jsonInput = it },
+            label = { Text("Mirror JSON") },
+            placeholder = {
+                Text(
+                    """
+                    {
+                      "baseUri": "https://example.com/",
+                      "password": "BASE64_PASSWORD"
+                    }
+                    """.trimIndent()
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(170.dp)
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                enabled = !busy && jsonInput.isNotBlank(),
+                onClick = {
+                    try {
+                        MirrorConfigStore.parseJson(jsonInput)
+                        status = "JSON is valid. Ready to save."
+                    } catch (e: Exception) {
+                        status = "Invalid JSON: ${e.message}"
+                    }
+                }
+            ) {
+                Text("Validate")
+            }
+
+            Button(
+                enabled = !busy && jsonInput.isNotBlank(),
+                onClick = {
+                    try {
+                        val config =
+                            MirrorConfigStore.parseJson(jsonInput)
+
+                        MirrorConfigStore.save(context, config)
+                        savedConfig = config
+                        status = "Mirror configuration saved securely."
+                    } catch (e: Exception) {
+                        status = "Save failed: ${e.message}"
+                    }
+                }
+            ) {
+                Text("Save Configuration")
+            }
+        }
+
+        HorizontalDivider(color = Color.DarkGray)
+
+        Text(
+            "Connection status",
+            color = Accent,
+            fontSize = 17.sp
+        )
+
+        Text(
+            status,
+            color = Color.LightGray
+        )
+
+        if (savedConfig != null) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Panel
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        "Rookie Quest settings",
+                        "Saved mirror",
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+
+                    Text(
+                        savedConfig!!.baseUri,
                         color = Color.LightGray
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Password: encrypted and stored",
+                        color = Color.Gray
+                    )
 
-                    Text("Installation: Android Package Installer")
-                    Text("Target device: Meta Quest 3")
-                    Text("Interface: Standalone VR")
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                MirrorConfigStore.clear(context)
+                                savedConfig = null
+                                jsonInput = ""
+                                configUrl = ""
+                                status = "Mirror disconnected."
+                            } catch (e: Exception) {
+                                status = "Disconnect failed: ${e.message}"
+                            }
+                        }
+                    ) {
+                        Text("Disconnect")
+                    }
                 }
             }
+        }
+
+        if (busy) {
+            CircularProgressIndicator()
         }
     }
 }
