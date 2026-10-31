@@ -1,15 +1,28 @@
+
 package com.lex.vrpquest.Utils
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.ParcelFileDescriptor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.lex.vrpquest.dataStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import java.io.BufferedReader
 import java.io.InputStreamReader
+
+// ==========================================
+// SHIZUKU COMMAND RESULT
+// ==========================================
 
 data class ShizukuCommandResult(
     val exitCode: Int,
@@ -18,6 +31,10 @@ data class ShizukuCommandResult(
     val success: Boolean
         get() = exitCode == 0
 }
+
+// ==========================================
+// SHIZUKU SHELL
+// ==========================================
 
 object ShizukuShell {
 
@@ -34,10 +51,10 @@ object ShizukuShell {
     fun requestPermission(requestCode: Int): Boolean {
         return try {
             if (!Shizuku.pingBinder()) return false
-
             if (Shizuku.isPreV11()) return false
 
-            if (Shizuku.checkSelfPermission() ==
+            if (
+                Shizuku.checkSelfPermission() ==
                 PackageManager.PERMISSION_GRANTED
             ) {
                 true
@@ -50,12 +67,17 @@ object ShizukuShell {
         }
     }
 
-    suspend fun execute(command: String): ShizukuCommandResult =
+    suspend fun execute(
+        command: String
+    ): ShizukuCommandResult =
         withContext(Dispatchers.IO) {
             executeBlocking(command)
         }
 
-    fun executeBlocking(command: String): ShizukuCommandResult {
+    fun executeBlocking(
+        command: String
+    ): ShizukuCommandResult {
+
         check(isAvailable()) {
             "Shizuku is not running or permission has not been granted."
         }
@@ -72,6 +94,7 @@ object ShizukuShell {
 
         val script = """
             exec 2>&1
+            set +e
             $command
             __vrp_exit_code=$?
             printf '\n__VRP_EXIT_CODE__:%s\n' "${'$'}__vrp_exit_code"
@@ -90,7 +113,7 @@ object ShizukuShell {
             BufferedReader(InputStreamReader(stream)).readText()
         }
 
-        process.waitFor()
+        val processExitCode = process.waitFor()
 
         val marker = Regex(
             """__VRP_EXIT_CODE__:(-?\d+)"""
@@ -100,10 +123,13 @@ object ShizukuShell {
             ?.groupValues
             ?.getOrNull(1)
             ?.toIntOrNull()
-            ?: -1
+            ?: processExitCode
 
         val cleanOutput = output
-            .replace(Regex("""\n?__VRP_EXIT_CODE__:-?\d+\s*$"""), "")
+            .replace(
+                Regex("""\n?__VRP_EXIT_CODE__:-?\d+\s*$"""),
+                ""
+            )
             .trim()
 
         return ShizukuCommandResult(
@@ -113,15 +139,19 @@ object ShizukuShell {
     }
 }
 
-/**
- * Compatibility wrapper for existing project code.
- *
- * New code should use ShizukuShell.execute() so it can
- * inspect the exit code instead of relying on console text.
- */
+// ==========================================
+// SHIZUKU COMPATIBILITY FUNCTIONS
+// ==========================================
+
 fun ShizAdbCommand(command: String): String {
     return try {
-        ShizukuShell.executeBlocking(command).output
+        val result = ShizukuShell.executeBlocking(command)
+
+        if (result.success) {
+            result.output
+        } else {
+            "SHIZUKU_COMMAND_FAILED (${result.exitCode}): ${result.output}"
+        }
     } catch (e: Exception) {
         "SHIZUKU_ERROR: ${e.message}"
     }
@@ -144,6 +174,10 @@ fun checkPermission(code: Int): Boolean {
     return ShizukuShell.requestPermission(code)
 }
 
+// ==========================================
+// SHIZUKU STATE LISTENERS
+// ==========================================
+
 @Composable
 fun UpdateShizukuState(Callback: () -> Unit) {
     DisposableEffect(Unit) {
@@ -160,9 +194,8 @@ fun UpdateShizukuState(Callback: () -> Unit) {
 
         val permissionResult =
             Shizuku.OnRequestPermissionResultListener {
-                    requestCode,
-                    grantResult ->
-
+                requestCode,
+                grantResult ->
                 Callback()
             }
 
@@ -182,16 +215,98 @@ fun onRequestPermissionsResult(
     requestCode: Int,
     grantResult: Int
 ) {
-    // Permission state is read again through ShizukuShell.isAvailable().
+    // Permission state is checked again through ShizukuShell.isAvailable().
 }
 
 val REQUEST_PERMISSION_RESULT_LISTENER =
     Shizuku.OnRequestPermissionResultListener {
         requestCode,
         grantResult ->
-
-        onRequestPermissionsResult(
-            requestCode,
-            grantResult
-        )
+        onRequestPermissionsResult(requestCode, grantResult)
     }
+
+// ==========================================
+// DATASTORE SETTINGS
+// ==========================================
+
+fun SettingStoreString(
+    context: Context,
+    id: String,
+    data: String
+) {
+    val setting = stringSetPreferencesKey(id)
+
+    runBlocking {
+        context.dataStore.edit { settings ->
+            settings[setting] = setOf(data)
+        }
+    }
+}
+
+fun SettingStoreStringSet(
+    context: Context,
+    id: String,
+    data: Set<String>
+) {
+    val setting = stringSetPreferencesKey(id)
+
+    runBlocking {
+        context.dataStore.edit { settings ->
+            settings[setting] = data
+        }
+    }
+}
+
+fun SettingGetStringSet(
+    context: Context,
+    id: String
+): Set<String>? {
+    val setting = stringSetPreferencesKey(id)
+
+    return runBlocking {
+        context.dataStore.data
+            .map { preferences -> preferences[setting] }
+            .first()
+    }
+}
+
+fun SettingGetSting(
+    context: Context,
+    id: String
+): String? {
+    val setting = stringSetPreferencesKey(id)
+
+    return runBlocking {
+        context.dataStore.data
+            .map { preferences -> preferences[setting] }
+            .first()
+            ?.firstOrNull()
+    }
+}
+
+fun SettingStoreBoolean(
+    context: Context,
+    id: String,
+    data: Boolean
+) {
+    val setting = booleanPreferencesKey(id)
+
+    runBlocking {
+        context.dataStore.edit { settings ->
+            settings[setting] = data
+        }
+    }
+}
+
+fun SettingGetBoolean(
+    context: Context,
+    id: String
+): Boolean? {
+    val setting = booleanPreferencesKey(id)
+
+    return runBlocking {
+        context.dataStore.data
+            .map { preferences -> preferences[setting] }
+            .first()
+    }
+}
