@@ -1,16 +1,19 @@
+
 package com.lex.vrpquest
 
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
+import android.content.pm.ApplicationInfo
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Environment
 import android.os.StatFs
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,10 +34,6 @@ import androidx.compose.ui.unit.sp
 import com.lex.vrpquest.Utils.ShizukuShell
 import kotlinx.coroutines.launch
 import java.util.Locale
-import android.content.pm.ApplicationInfo
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 
 private data class DeviceSnapshot(
     val model: String,
@@ -60,26 +59,27 @@ fun ToolsPage() {
     val scope = rememberCoroutineScope()
 
     var snapshot by remember { mutableStateOf<DeviceSnapshot?>(null) }
-    var packages by remember {
-        mutableStateOf<List<InstalledPackage>>(emptyList())
+    var packages by remember { mutableStateOf<List<InstalledPackage>>(emptyList()) }
+
+    var loading by remember { mutableStateOf(false) }
+    var diagnosticRunning by remember { mutableStateOf(false) }
+    var diagnosticOutput by remember {
+        mutableStateOf("No diagnostic has been run.")
+    }
+    var refreshKey by remember { mutableIntStateOf(0) }
+
+    val uninstallLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        refreshKey++
     }
 
-    var diagnosticOutput by remember { mutableStateOf("No diagnostic has been run.") }
-var refreshKey by remember { mutableIntStateOf(0) }
-
-val uninstallLauncher = rememberLauncherForActivityResult(
-    ActivityResultContracts.StartActivityForResult()
-) {
-    refreshKey++
-}
-
-val shizukuAvailable = remember(refreshKey) {
-    ShizukuShell.isAvailable()
-}
+    val shizukuAvailable = remember(refreshKey) {
+        ShizukuShell.isAvailable()
+    }
 
     LaunchedEffect(refreshKey) {
         loading = true
-
         try {
             snapshot = readDeviceSnapshot(context)
             packages = readInstalledPackages(context)
@@ -201,63 +201,66 @@ val shizukuAvailable = remember(refreshKey) {
                         key = { it.packageName }
                     ) { app ->
                         Surface(
-    modifier = Modifier.fillMaxWidth(),
-    color = PanelLight,
-    shape = RoundedCornerShape(10.dp)
-) {
-    Row(
-        modifier = Modifier.padding(11.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                app.packageName,
-                color = TextPrimary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
+                            modifier = Modifier.fillMaxWidth(),
+                            color = PanelLight,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(11.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        app.packageName,
+                                        color = TextPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
 
-            Text(
-                "Version ${app.versionName} (${app.versionCode})",
-                color = TextSecondary,
-                fontSize = 10.sp
-            )
+                                    Text(
+                                        "Version ${app.versionName} (${app.versionCode})",
+                                        color = TextSecondary,
+                                        fontSize = 10.sp
+                                    )
 
-            if (app.isSystemApp) {
-                Text(
-                    "System application",
-                    color = Warning,
-                    fontSize = 10.sp
-                )
-            }
-        }
+                                    if (app.isSystemApp) {
+                                        Text(
+                                            "System application",
+                                            color = Warning,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
 
-        IconButton(
-            enabled = !app.isSystemApp &&
-                app.packageName != context.packageName,
-            onClick = {
-                val intent = Intent(Intent.ACTION_DELETE).apply {
-                    data = Uri.fromParts(
-                        "package",
-                        app.packageName,
-                        null
-                    )
+                                IconButton(
+                                    enabled = !app.isSystemApp &&
+                                        app.packageName != context.packageName,
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_DELETE).apply {
+                                            data = Uri.fromParts(
+                                                "package",
+                                                app.packageName,
+                                                null
+                                            )
+                                        }
+                                        uninstallLauncher.launch(intent)
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Uninstall ${app.packageName}",
+                                        tint = Warning
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-
-                uninstallLauncher.launch(intent)
             }
-        ) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = "Uninstall ${app.packageName}",
-                tint = Warning
-            )
         }
-    }
-}
 
         // SHIZUKU / ADB DIAGNOSTICS
         ToolSection(
@@ -287,10 +290,7 @@ val shizukuAvailable = remember(refreshKey) {
                     containerColor = Accent
                 )
             ) {
-                Icon(
-                    Icons.Default.Security,
-                    contentDescription = null
-                )
+                Icon(Icons.Default.Security, contentDescription = null)
                 Spacer(Modifier.width(7.dp))
                 Text("Check / request permission")
             }
@@ -328,10 +328,7 @@ val shizukuAvailable = remember(refreshKey) {
                     containerColor = PanelLight
                 )
             ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = null
-                )
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(7.dp))
                 Text(
                     if (diagnosticRunning) "Testing..."
@@ -375,11 +372,7 @@ private fun ToolSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = Accent
-                )
+                Icon(icon, contentDescription = null, tint = Accent)
 
                 Column {
                     Text(
@@ -388,7 +381,6 @@ private fun ToolSection(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
                     )
-
                     Text(
                         subtitle,
                         color = TextSecondary,
@@ -398,17 +390,13 @@ private fun ToolSection(
             }
 
             HorizontalDivider(color = PanelLight)
-
             content()
         }
     }
 }
 
 @Composable
-private fun InfoRow(
-    label: String,
-    value: String
-) {
+private fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -424,21 +412,14 @@ private fun InfoRow(
     }
 }
 
-private fun readDeviceSnapshot(
-    context: Context
-): DeviceSnapshot {
+private fun readDeviceSnapshot(context: Context): DeviceSnapshot {
     val batteryIntent = context.registerReceiver(
         null,
         IntentFilter(Intent.ACTION_BATTERY_CHANGED)
     )
 
-    val level = batteryIntent?.getIntExtra(
-        BatteryManager.EXTRA_LEVEL, -1
-    ) ?: -1
-
-    val scale = batteryIntent?.getIntExtra(
-        BatteryManager.EXTRA_SCALE, -1
-    ) ?: -1
+    val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
 
     val percentage = if (level >= 0 && scale > 0) {
         (level * 100) / scale
@@ -455,8 +436,7 @@ private fun readDeviceSnapshot(
         BatteryManager.BATTERY_HEALTH_DEAD -> "Dead"
         BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over voltage"
         BatteryManager.BATTERY_HEALTH_COLD -> "Too cold"
-        BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE ->
-            "Unspecified failure"
+        BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Unspecified failure"
         else -> "Unknown"
     }
 
@@ -471,12 +451,9 @@ private fun readDeviceSnapshot(
 
     val connection = when {
         capabilities == null -> "Disconnected"
-        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ->
-            "Wi-Fi"
-        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ->
-            "Ethernet"
-        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
-            "Mobile data"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Mobile data"
         else -> "Connected"
     }
 
@@ -497,13 +474,13 @@ private fun readDeviceSnapshot(
 }
 
 @Suppress("DEPRECATION")
-private fun readInstalledPackages(
-    context: Context
-): List<InstalledPackage> {
+private fun readInstalledPackages(context: Context): List<InstalledPackage> {
     val manager = context.packageManager
 
     return manager.getInstalledPackages(0)
         .map { info ->
+            val flags = info.applicationInfo?.flags ?: 0
+
             InstalledPackage(
                 packageName = info.packageName,
                 versionName = info.versionName ?: "Unknown",
@@ -511,7 +488,13 @@ private fun readInstalledPackages(
                     info.longVersionCode
                 } else {
                     info.versionCode.toLong()
-                }
+                },
+                isSystemApp = (
+                    flags and (
+                        ApplicationInfo.FLAG_SYSTEM or
+                            ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+                    )
+                ) != 0
             )
         }
         .sortedBy { it.packageName.lowercase(Locale.ROOT) }
@@ -529,5 +512,10 @@ private fun formatBytes(bytes: Long): String {
         index++
     }
 
-    return String.format(Locale.getDefault(), "%.2f %s", value, units[index])
+    return String.format(
+        Locale.getDefault(),
+        "%.2f %s",
+        value,
+        units[index]
+    )
 }
