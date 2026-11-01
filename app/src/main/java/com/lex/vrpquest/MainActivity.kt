@@ -395,11 +395,7 @@ fun RookieDashboard(
                         description = "Your installed Quest applications will appear here."
                     )
 
-                    "Tools" -> PlaceholderPage(
-                        icon = Icons.Default.Build,
-                        title = "Quest tools",
-                        description = "Useful device utilities and management tools."
-                    )
+                    "Tools" -> ToolsPage()
 
                     "Settings" -> SettingsPage(
                         shizukuRunning = shizukuRunning,
