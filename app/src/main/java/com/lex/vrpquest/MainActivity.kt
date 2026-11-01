@@ -939,10 +939,10 @@ private fun LibraryPage(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            androidx.compose.foundation.lazy.items(
-                items = filteredApps,
-                key = { it.id }
-            ) { app ->
+            items(
+    items = filteredApps,
+    key = { it.id }
+) { app ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = Panel,
