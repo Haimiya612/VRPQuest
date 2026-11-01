@@ -234,32 +234,26 @@ fun ToolsPage() {
                                     }
                                 }
 
-                                IconButton(
-                                    enabled = !app.isSystemApp &&
-                                        app.packageName != context.packageName,
-                                    onClick = {
-                                        val intent = Intent(Intent.ACTION_DELETE).apply {
-                                            data = Uri.fromParts(
-                                                "package",
-                                                app.packageName,
-                                                null
-                                            )
-                                        }
-                                        uninstallLauncher.launch(intent)
-                                    }
-                                ) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Uninstall ${app.packageName}",
-                                        tint = Color(0xFFFFB74D)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                                if (!app.isSystemApp && app.packageName != context.packageName) {
+    IconButton(
+        onClick = {
+            val intent = Intent(Intent.ACTION_DELETE).apply {
+                data = Uri.fromParts(
+                    "package",
+                    app.packageName,
+                    null
+                )
             }
+            uninstallLauncher.launch(intent)
         }
+    ) {
+        Icon(
+            Icons.Default.Delete,
+            contentDescription = "Uninstall ${app.packageName}",
+            tint = Color(0xFFFFB74D)
+        )
+    }
+}
 
         // SHIZUKU / ADB DIAGNOSTICS
         ToolSection(
