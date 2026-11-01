@@ -837,7 +837,7 @@ private fun LibraryPage() {
             }
         }
 
-        Surface(
+                Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Panel,
             shape = RoundedCornerShape(16.dp)
@@ -867,6 +867,9 @@ private fun LibraryPage() {
                 )
             }
         }
+
+        // Rclone native runtime diagnostic
+        RcloneRuntimeCard()
     }
 }
 
