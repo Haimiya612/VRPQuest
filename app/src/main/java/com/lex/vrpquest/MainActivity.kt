@@ -54,11 +54,13 @@ import androidx.compose.foundation.lazy.items
 
 private val Background = Color(0xFF0C0E13)
 private val Sidebar = Color(0xFF11151D)
-private val Panel = Color(0xFF171C26)
-private val PanelLight = Color(0xFF202735)
-private val Accent = Color(0xFF9B8CFF)
-private val TextPrimary = Color(0xFFF2F3F8)
-private val TextSecondary = Color(0xFF929BAE)
+
+val Panel = Color(0xFF171C26)
+val PanelLight = Color(0xFF202735)
+val Accent = Color(0xFF9B8CFF)
+val TextPrimary = Color(0xFFF2F3F8)
+val TextSecondary = Color(0xFF929BAE)
+
 private val Success = Color(0xFF69D6A2)
 private val Warning = Color(0xFFFFC66D)
 
