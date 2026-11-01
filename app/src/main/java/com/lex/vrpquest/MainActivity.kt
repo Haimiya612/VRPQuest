@@ -53,6 +53,7 @@ import rikka.shizuku.Shizuku
 import com.lex.vrpquest.CatalogLibraryPage
 import com.lex.vrpquest.Managers.CatalogApp
 import com.lex.vrpquest.Managers.CatalogRepository
+import androidx.compose.foundation.lazy.items
 
 private val Background = Color(0xFF0C0E13)
 private val Sidebar = Color(0xFF11151D)
