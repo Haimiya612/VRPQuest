@@ -742,9 +742,11 @@ private fun StatusCard(
     }
 }
 
+
 @Composable
 private fun LibraryPage() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var mirrorConfig by remember {
         mutableStateOf(
@@ -752,6 +754,66 @@ private fun LibraryPage() {
                 MirrorConfigStore.load(context)
             }.getOrNull()
         )
+    }
+
+    var games by remember {
+        mutableStateOf<List<Game>>(emptyList())
+    }
+
+    var searchQuery by remember {
+        mutableStateOf("")
+    }
+
+    var loading by remember {
+        mutableStateOf(false)
+    }
+
+    var progress by remember {
+        mutableFloatStateOf(0f)
+    }
+
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    fun connectToMirror() {
+        scope.launch {
+            loading = true
+            progress = 0f
+            error = null
+
+            try {
+                val config = MirrorConfigStore.load(context)
+                mirrorConfig = config
+
+                games = PublicMirrorRepository.fetchGames(
+                    context = context,
+                    config = config,
+                    progress = { value ->
+                        scope.launch {
+                            progress = value.coerceIn(0f, 1f)
+                        }
+                    }
+                )
+            } catch (exception: Exception) {
+                error = exception.message
+                    ?: "Failed to connect to mirror."
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    val filteredGames = remember(games, searchQuery) {
+        games.filter { game ->
+            game.GameName.contains(
+                searchQuery,
+                ignoreCase = true
+            ) || game.PackageName.contains(
+                searchQuery,
+                ignoreCase = true
+            )
+        }
     }
 
     Column(
@@ -801,22 +863,54 @@ private fun LibraryPage() {
                         color = TextSecondary,
                         fontSize = 12.sp
                     )
-
-                    Text(
-                        "Your configuration is saved. Library browsing will become available once the mirror connection is implemented.",
-                        color = TextSecondary,
-                        fontSize = 12.sp
-                    )
                 } else {
                     Text(
                         "No mirror configuration found.",
-                        color = Warning,
+                        color = MaterialTheme.colorScheme.error,
                         fontSize = 13.sp
                     )
 
                     Text(
                         "Open Settings → Mirror configuration to add your connection details.",
                         color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Button(
+                    onClick = { connectToMirror() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !loading && mirrorConfig != null
+                ) {
+                    Icon(
+                        Icons.Default.CloudDownload,
+                        contentDescription = null
+                    )
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Text(
+                        if (loading) "Connecting..." else "Connect to mirror"
+                    )
+                }
+
+                if (loading) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        "Downloading and extracting metadata... ${(progress * 100).toInt()}%",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                if (error != null) {
+                    Text(
+                        error!!,
+                        color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp
                     )
                 }
@@ -831,8 +925,7 @@ private fun LibraryPage() {
                 ) {
                     Icon(
                         Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(17.dp)
+                        contentDescription = null
                     )
 
                     Spacer(Modifier.width(8.dp))
@@ -842,38 +935,88 @@ private fun LibraryPage() {
             }
         }
 
-                Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Panel,
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        if (games.isNotEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Panel,
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Icon(
-                    Icons.Default.Apps,
-                    contentDescription = null,
-                    tint = Accent,
-                    modifier = Modifier.size(30.dp)
-                )
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Available applications (${filteredGames.size})",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
 
-                Text(
-                    "Library not connected",
-                    color = TextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text("Search applications...")
+                        },
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null
+                            )
+                        }
+                    )
 
-                Text(
-                    "The old generic catalog URL has been removed. The next step is implementing the actual mirror protocol.",
-                    color = TextSecondary,
-                    fontSize = 12.sp
-                )
+                    filteredGames.forEach { game ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                game.GameName,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp
+                            )
+
+                            Text(
+                                game.PackageName,
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+
+                            Text(
+                                "Version: ${game.VersionCode} • ${game.Size} MB",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+
+                            Text(
+                                "Updated: ${game.LastUpdated}",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+
+                            if (game.notes.isNotBlank()) {
+                                Text(
+                                    game.notes,
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            HorizontalDivider(
+                                color = PanelLight
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        // Rclone native runtime diagnostic
+        // Keep the existing Rclone diagnostic unchanged.
         RcloneRuntimeCard()
     }
 }
