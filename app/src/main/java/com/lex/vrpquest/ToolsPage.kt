@@ -229,7 +229,7 @@ fun ToolsPage() {
                                     if (app.isSystemApp) {
                                         Text(
                                             "System application",
-                                            color = Warning,
+                                            color = Color(0xFFFFB74D),
                                             fontSize = 10.sp
                                         )
                                     }
@@ -252,7 +252,7 @@ fun ToolsPage() {
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Uninstall ${app.packageName}",
-                                        tint = Warning
+                                        tint = Color(0xFFFFB74D)
                                     )
                                 }
                             }
