@@ -63,8 +63,6 @@ dependencies {
     implementation(libs.androidx.espresso.core)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.datastore.core.android)
-    //implementation(libs.firebase.crashlytics.buildtools)
-    //implementation(files("C:\\Users\\Metalex\\AndroidStudioProjects\\VRPquest\\app\\libs\\libp7zip-release.aar"))
     val shizuku_version = "13.1.5"
     implementation("dev.rikka.shizuku:api:$shizuku_version")
     implementation("dev.rikka.shizuku:provider:$shizuku_version")
@@ -72,6 +70,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
+    implementation("androidx.compose.animation:animation") // Added
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
