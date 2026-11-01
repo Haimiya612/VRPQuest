@@ -984,3 +984,673 @@ private fun LibraryPage(
         }
     }
 }
+
+@Composable
+private fun PlaceholderPage(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.65f)
+                .background(Panel, RoundedCornerShape(18.dp))
+                .padding(30.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Accent,
+                modifier = Modifier.size(38.dp)
+            )
+
+            Text(
+                title,
+                color = TextPrimary,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                description,
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsPage(
+    shizukuRunning: Boolean,
+    shizukuGranted: Boolean,
+    onShizukuPermission: () -> Unit,
+    onRefreshShizuku: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var expanded by remember { mutableStateOf("Connection") }
+
+    var animationsEnabled by remember { mutableStateOf(true) }
+    var confirmInstall by remember { mutableStateOf(true) }
+    var compactCards by remember { mutableStateOf(false) }
+    var preferencesLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(context) {
+        val preferences = withContext(Dispatchers.IO) {
+            Triple(
+                SettingGetBoolean(context, PREF_ANIMATIONS),
+                SettingGetBoolean(context, PREF_CONFIRM_INSTALL),
+                SettingGetBoolean(context, PREF_COMPACT_CARDS)
+            )
+        }
+
+        animationsEnabled = preferences.first ?: true
+        confirmInstall = preferences.second ?: true
+        compactCards = preferences.third ?: false
+        preferencesLoaded = true
+    }
+
+    fun savePreference(key: String, value: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                SettingStoreBoolean(context, key, value)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        SettingsCategory(
+            title = "Connection",
+            subtitle = "Shizuku and device access",
+            icon = Icons.Default.Security,
+            expanded = expanded == "Connection",
+            onClick = {
+                expanded =
+                    if (expanded == "Connection") "" else "Connection"
+            }
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Shizuku status",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Text(
+                        when {
+                            shizukuRunning && shizukuGranted ->
+                                "Connected and authorized"
+
+                            shizukuRunning ->
+                                "Running, permission not granted"
+
+                            else ->
+                                "Shizuku is not running"
+                        },
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Box(
+                    Modifier
+                        .size(9.dp)
+                        .background(
+                            if (shizukuRunning && shizukuGranted) Success
+                            else Warning,
+                            RoundedCornerShape(50)
+                        )
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Button(
+                    onClick = onShizukuPermission,
+                    enabled = shizukuRunning && !shizukuGranted,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Accent,
+                        disabledContainerColor = PanelLight
+                    )
+                ) {
+                    Text(
+                        if (shizukuGranted) "Authorized"
+                        else "Grant permission",
+                        color = TextPrimary
+                    )
+                }
+
+                OutlinedButton(onClick = onRefreshShizuku) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Refresh")
+                }
+            }
+
+            if (!shizukuRunning) {
+                Text(
+                    "Start Shizuku on your Quest 3 first. Rookie will detect it automatically.",
+                    color = Warning,
+                    fontSize = 11.sp
+                )
+            } else if (shizukuGranted) {
+                Text(
+                    "Rookie has Shizuku permission. Features requiring elevated access can now use it.",
+                    color = Success,
+                    fontSize = 11.sp
+                )
+            } else {
+                Text(
+                    "Grant Rookie permission in the Shizuku authorization prompt.",
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        SettingsCategory(
+            title = "Mirror configuration",
+            subtitle = "Manage saved connection settings",
+            icon = Icons.Default.Cloud,
+            expanded = expanded == "Mirror",
+            onClick = {
+                expanded = if (expanded == "Mirror") "" else "Mirror"
+            }
+        ) {
+            MirrorSettings()
+        }
+
+        SettingsCategory(
+            title = "Application",
+            subtitle = "Rookie interface and behavior",
+            icon = Icons.Default.Tune,
+            expanded = expanded == "Application",
+            onClick = {
+                expanded =
+                    if (expanded == "Application") "" else "Application"
+            }
+        ) {
+            if (!preferencesLoaded) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Accent
+                )
+            } else {
+                PreferenceSwitch(
+                    title = "Interface animations",
+                    description = "Enable animated transitions and visual feedback.",
+                    checked = animationsEnabled,
+                    onCheckedChange = {
+                        animationsEnabled = it
+                        savePreference(PREF_ANIMATIONS, it)
+                    }
+                )
+
+                HorizontalDivider(color = PanelLight)
+
+                PreferenceSwitch(
+                    title = "Confirm before installation",
+                    description = "Ask before opening the Android package installer.",
+                    checked = confirmInstall,
+                    onCheckedChange = {
+                        confirmInstall = it
+                        savePreference(PREF_CONFIRM_INSTALL, it)
+                    }
+                )
+
+                HorizontalDivider(color = PanelLight)
+
+                PreferenceSwitch(
+                    title = "Compact cards",
+                    description = "Use a denser layout where supported.",
+                    checked = compactCards,
+                    onCheckedChange = {
+                        compactCards = it
+                        savePreference(PREF_COMPACT_CARDS, it)
+                    }
+                )
+            }
+
+            Text(
+                "Preferences are saved on this device.",
+                color = TextSecondary,
+                fontSize = 10.sp
+            )
+        }
+
+        SettingsCategory(
+            title = "Storage",
+            subtitle = "Local files and installation",
+            icon = Icons.Default.Folder,
+            expanded = expanded == "Storage",
+            onClick = {
+                expanded = if (expanded == "Storage") "" else "Storage"
+            }
+        ) {
+            Text(
+                "APK files are selected through Android's document picker. Rookie does not need broad storage access to install a file you choose.",
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Success,
+                    modifier = Modifier.size(17.dp)
+                )
+                Text(
+                    "Local APK installation is available",
+                    color = Success,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        SettingsCategory(
+            title = "About",
+            subtitle = "Version and project information",
+            icon = Icons.Default.Info,
+            expanded = expanded == "About",
+            onClick = {
+                expanded = if (expanded == "About") "" else "About"
+            }
+        ) {
+            Text(
+                "Rookie Quest",
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Text(
+                "Version 0.3.0",
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+
+            Text(
+                "Built for Meta Quest.",
+                color = TextSecondary,
+                fontSize = 11.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun PreferenceSwitch(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                title,
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            Text(
+                description,
+                color = TextSecondary,
+                fontSize = 10.sp
+            )
+        }
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Background,
+                checkedTrackColor = Accent,
+                uncheckedThumbColor = TextSecondary,
+                uncheckedTrackColor = PanelLight
+            )
+        )
+    }
+}
+
+@Composable
+private fun SettingsCategory(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Panel,
+        shape = RoundedCornerShape(15.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(17.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = Accent,
+                    modifier = Modifier.size(22.dp)
+                )
+
+                Spacer(Modifier.width(13.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+
+                    Text(
+                        subtitle,
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess
+                    else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = TextSecondary
+                )
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(tween(160)) +
+                    expandVertically(tween(200)),
+                exit = fadeOut(tween(100)) +
+                    shrinkVertically(tween(160))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 17.dp,
+                            end = 17.dp,
+                            bottom = 17.dp
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    content = content
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MirrorSettings() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var configUrl by remember { mutableStateOf("") }
+    var jsonInput by remember { mutableStateOf("") }
+
+    var savedConfig by remember {
+        mutableStateOf(
+            runCatching {
+                MirrorConfigStore.load(context)
+            }.getOrNull()
+        )
+    }
+
+    var status by remember {
+        mutableStateOf(
+            if (savedConfig != null) {
+                "A mirror configuration is saved."
+            } else {
+                "No mirror configured."
+            }
+        )
+    }
+
+    var busy by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            "Load configuration from URL",
+            color = Accent,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        OutlinedTextField(
+            value = configUrl,
+            onValueChange = { configUrl = it },
+            label = { Text("Configuration URL") },
+            placeholder = { Text("https://example.com/config.json") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Button(
+            enabled = !busy && configUrl.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    busy = true
+                    status = "Downloading configuration..."
+
+                    try {
+                        val config = withContext(Dispatchers.IO) {
+                            MirrorConfigStore.fetchFromUrl(configUrl)
+                        }
+
+                        withContext(Dispatchers.IO) {
+                            MirrorConfigStore.save(context, config)
+                        }
+
+                        savedConfig = config
+                        status = "Configuration downloaded and saved."
+                    } catch (e: Exception) {
+                        status = "Failed: ${e.message}"
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Accent
+            )
+        ) {
+            Text("Load URL and save", color = Background)
+        }
+
+        HorizontalDivider(color = PanelLight)
+
+        Text(
+            "Or paste configuration JSON",
+            color = Accent,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        OutlinedTextField(
+            value = jsonInput,
+            onValueChange = { jsonInput = it },
+            label = { Text("Mirror JSON") },
+            placeholder = {
+                Text(
+                    """
+                    {
+                      "baseUri": "https://example.com/",
+                      "password": "BASE64_PASSWORD"
+                    }
+                    """.trimIndent()
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(145.dp)
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            OutlinedButton(
+                enabled = !busy && jsonInput.isNotBlank(),
+                onClick = {
+                    try {
+                        MirrorConfigStore.parseJson(jsonInput)
+                        status = "JSON is valid. Ready to save."
+                    } catch (e: Exception) {
+                        status = "Invalid JSON: ${e.message}"
+                    }
+                }
+            ) {
+                Text("Validate")
+            }
+
+            Button(
+                enabled = !busy && jsonInput.isNotBlank(),
+                onClick = {
+                    scope.launch {
+                        busy = true
+
+                        try {
+                            val config =
+                                MirrorConfigStore.parseJson(jsonInput)
+
+                            withContext(Dispatchers.IO) {
+                                MirrorConfigStore.save(context, config)
+                            }
+
+                            savedConfig = config
+                            status = "Configuration saved securely."
+                        } catch (e: Exception) {
+                            status = "Save failed: ${e.message}"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Accent
+                )
+            ) {
+                Text("Save configuration", color = Background)
+            }
+        }
+
+        Text(
+            status,
+            color = TextSecondary,
+            fontSize = 12.sp
+        )
+
+        if (savedConfig != null) {
+            Surface(
+                color = PanelLight,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Text(
+                        "Saved mirror",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        savedConfig!!.baseUri,
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+
+                    Text(
+                        "Password: encrypted and stored",
+                        color = Success,
+                        fontSize = 11.sp
+                    )
+
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = {
+                            scope.launch {
+                                busy = true
+
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        MirrorConfigStore.clear(context)
+                                    }
+
+                                    savedConfig = null
+                                    jsonInput = ""
+                                    configUrl = ""
+                                    status = "Mirror disconnected."
+                                } catch (e: Exception) {
+                                    status = "Disconnect failed: ${e.message}"
+                                } finally {
+                                    busy = false
+                                }
+                            }
+                        }
+                    ) {
+                        Text("Disconnect")
+                    }
+                }
+            }
+        }
+
+        if (busy) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = Accent
+            )
+        }
+    }
+}
