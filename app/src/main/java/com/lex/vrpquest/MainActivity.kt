@@ -140,7 +140,6 @@ fun RookieDashboard(
     onInstallApk: (android.net.Uri) -> Unit
 ) {
     var selected by remember { mutableStateOf("Home") }
-    var search by remember { mutableStateOf("") }
     var shizukuRefresh by remember { mutableIntStateOf(0) }
 
     UpdateShizukuState {
