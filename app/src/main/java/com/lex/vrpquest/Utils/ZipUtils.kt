@@ -65,7 +65,21 @@ class ExtractCallback(private val inArchive: IInArchive, outputDirectoryFile: Fi
         ) as Boolean
 
         val path = inArchive.getProperty(index, PropID.PATH) as String
-        file = File(outputDirectoryFile, path)
+
+val rootPath = outputDirectoryFile.canonicalFile
+val targetFile = File(rootPath, path).canonicalFile
+val rootPrefix = rootPath.path + File.separator
+
+if (
+    targetFile.path != rootPath.path &&
+    !targetFile.path.startsWith(rootPrefix)
+) {
+    throw SevenZipException(
+        "Unsafe archive entry path: $path"
+    )
+}
+
+file = targetFile
         if (isFolder) {
             createDirectory(file!!)
             return null
