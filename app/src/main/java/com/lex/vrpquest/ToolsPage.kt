@@ -31,6 +31,10 @@ import androidx.compose.ui.unit.sp
 import com.lex.vrpquest.Utils.ShizukuShell
 import kotlinx.coroutines.launch
 import java.util.Locale
+import android.content.pm.ApplicationInfo
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 private data class DeviceSnapshot(
     val model: String,
@@ -46,7 +50,8 @@ private data class DeviceSnapshot(
 private data class InstalledPackage(
     val packageName: String,
     val versionName: String,
-    val versionCode: Long
+    val versionCode: Long,
+    val isSystemApp: Boolean
 )
 
 @Composable
