@@ -50,9 +50,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
-import com.lex.vrpquest.CatalogLibraryPage
-import com.lex.vrpquest.Managers.CatalogApp
-import com.lex.vrpquest.Managers.CatalogRepository
 import androidx.compose.foundation.lazy.items
 
 private val Background = Color(0xFF0C0E13)
