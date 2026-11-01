@@ -50,6 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
+import com.lex.vrpquest.CatalogLibraryPage
 
 private val Background = Color(0xFF0C0E13)
 private val Sidebar = Color(0xFF11151D)
