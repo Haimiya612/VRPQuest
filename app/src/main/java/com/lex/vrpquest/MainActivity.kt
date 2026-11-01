@@ -377,11 +377,7 @@ fun RookieDashboard(
                         shizukuGranted = shizukuGranted
                     )
 
-                    "Library" -> LibraryPage(
-                        search = search,
-                        onSearchChange = { search = it }
-                    )
-
+                    "Library" -> LibraryPage()
                     "Queue" -> PlaceholderPage(
                         icon = Icons.Default.Download,
                         title = "Download queue",
