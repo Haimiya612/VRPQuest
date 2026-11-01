@@ -64,14 +64,18 @@ fun ToolsPage() {
         mutableStateOf<List<InstalledPackage>>(emptyList())
     }
 
-    var loading by remember { mutableStateOf(false) }
-    var diagnosticRunning by remember { mutableStateOf(false) }
     var diagnosticOutput by remember { mutableStateOf("No diagnostic has been run.") }
-    var refreshKey by remember { mutableIntStateOf(0) }
+var refreshKey by remember { mutableIntStateOf(0) }
 
-    val shizukuAvailable = remember(refreshKey) {
-        ShizukuShell.isAvailable()
-    }
+val uninstallLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) {
+    refreshKey++
+}
+
+val shizukuAvailable = remember(refreshKey) {
+    ShizukuShell.isAvailable()
+}
 
     LaunchedEffect(refreshKey) {
         loading = true
