@@ -1,4 +1,3 @@
-
 package com.lex.vrpquest.Utils
 
 import android.content.Context
