@@ -745,95 +745,24 @@ private fun StatusCard(
     }
 }
 
-
 @Composable
-private fun LibraryPage(
-    search: String,
-    onSearchChange: (String) -> Unit
-) {
+private fun LibraryPage() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val repository = remember { CatalogRepository() }
 
-    var catalogUrl by remember {
+    var mirrorConfig by remember {
         mutableStateOf(
-            context.getSharedPreferences(
-                "rookie_catalog",
-                android.content.Context.MODE_PRIVATE
-            ).getString("catalog_url", "") ?: ""
+            runCatching {
+                MirrorConfigStore.load(context)
+            }.getOrNull()
         )
-    }
-
-    var apps by remember {
-        mutableStateOf<List<CatalogApp>>(emptyList())
-    }
-
-    var loading by remember { mutableStateOf(false) }
-    var loaded by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    fun loadCatalog() {
-        val requestedUrl = catalogUrl.trim()
-
-        if (requestedUrl.isBlank()) {
-            error = "Enter your catalog HTTPS address first."
-            return
-        }
-
-        scope.launch {
-            loading = true
-            error = null
-
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    repository.fetchCatalog(requestedUrl)
-                }
-
-                context.getSharedPreferences(
-                    "rookie_catalog",
-                    android.content.Context.MODE_PRIVATE
-                ).edit()
-                    .putString("catalog_url", requestedUrl)
-                    .apply()
-
-                apps = result
-                loaded = true
-            } catch (e: Exception) {
-                error = e.message ?: "Unable to load catalog."
-            } finally {
-                loading = false
-            }
-        }
-    }
-
-    val filteredApps = remember(apps, search) {
-        apps.filter {
-            it.title.contains(search, ignoreCase = true) ||
-            it.packageName.contains(search, ignoreCase = true) ||
-            it.description.contains(search, ignoreCase = true)
-        }
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        OutlinedTextField(
-            value = search,
-            onValueChange = onSearchChange,
-            modifier = Modifier.fillMaxWidth(0.65f),
-            singleLine = true,
-            placeholder = { Text("Search applications...") },
-            leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = null)
-            },
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Accent,
-                unfocusedBorderColor = PanelLight
-            )
-        )
-
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Panel,
@@ -841,7 +770,7 @@ private fun LibraryPage(
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -851,131 +780,99 @@ private fun LibraryPage(
                         Icons.Default.Cloud,
                         contentDescription = null,
                         tint = Accent,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(25.dp)
                     )
 
                     Text(
-                        "Online catalog",
+                        "Online Library",
                         color = TextPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                Text(
-                    "Connect an authorized JSON catalog to browse its applications.",
-                    color = TextSecondary,
-                    fontSize = 12.sp
-                )
-
-                OutlinedTextField(
-                    value = catalogUrl,
-                    onValueChange = { catalogUrl = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Catalog HTTPS URL") },
-                    placeholder = {
-                        Text("https://example.com/catalog.json")
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Button(
-                    onClick = { loadCatalog() },
-                    enabled = !loading,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Accent,
-                        disabledContainerColor = PanelLight
-                    )
-                ) {
+                if (mirrorConfig != null) {
                     Text(
-                        if (loading) "Connecting..."
-                        else if (loaded) "Refresh catalog"
-                        else "Connect catalog",
-                        color = TextPrimary
-                    )
-                }
-
-                if (loading) {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Accent
-                    )
-                }
-
-                error?.let {
-                    Text(
-                        it,
-                        color = Warning,
-                        fontSize = 11.sp
-                    )
-                }
-
-                if (loaded && error == null) {
-                    Text(
-                        "${apps.size} applications loaded",
+                        "Mirror configuration detected",
                         color = Success,
-                        fontSize = 11.sp
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
                     )
+
+                    Text(
+                        mirrorConfig!!.baseUri,
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+
+                    Text(
+                        "Your configuration is saved. Library browsing will become available once the mirror connection is implemented.",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    Text(
+                        "No mirror configuration found.",
+                        color = Warning,
+                        fontSize = 13.sp
+                    )
+
+                    Text(
+                        "Open Settings → Mirror configuration to add your connection details.",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        mirrorConfig = runCatching {
+                            MirrorConfigStore.load(context)
+                        }.getOrNull()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Text("Refresh configuration")
                 }
             }
         }
 
-        if (loaded && filteredApps.isEmpty() && !loading) {
-            Text(
-                if (apps.isEmpty()) "The catalog is empty."
-                else "No matching applications found.",
-                color = TextSecondary,
-                fontSize = 13.sp
-            )
-        }
-
-        androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Panel,
+            shape = RoundedCornerShape(16.dp)
         ) {
-            items(
-    items = filteredApps,
-    key = { it.id }
-) { app ->
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Panel,
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            app.title,
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Apps,
+                    contentDescription = null,
+                    tint = Accent,
+                    modifier = Modifier.size(30.dp)
+                )
 
-                        Text(
-                            app.packageName,
-                            color = Accent,
-                            fontSize = 11.sp
-                        )
+                Text(
+                    "Library not connected",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
 
-                        Text(
-                            "Version ${app.versionName}",
-                            color = TextSecondary,
-                            fontSize = 11.sp
-                        )
-
-                        if (app.description.isNotBlank()) {
-                            Text(
-                                app.description,
-                                color = TextSecondary,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
+                Text(
+                    "The old generic catalog URL has been removed. The next step is implementing the actual mirror protocol.",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
             }
         }
     }
