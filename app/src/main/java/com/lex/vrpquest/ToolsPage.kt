@@ -201,34 +201,63 @@ val shizukuAvailable = remember(refreshKey) {
                         key = { it.packageName }
                     ) { app ->
                         Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = PanelLight,
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(11.dp),
-                                verticalArrangement =
-                                    Arrangement.spacedBy(3.dp)
-                            ) {
-                                Text(
-                                    app.packageName,
-                                    color = TextPrimary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+    modifier = Modifier.fillMaxWidth(),
+    color = PanelLight,
+    shape = RoundedCornerShape(10.dp)
+) {
+    Row(
+        modifier = Modifier.padding(11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                app.packageName,
+                color = TextPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
 
-                                Text(
-                                    "Version ${app.versionName} " +
-                                        "(${app.versionCode})",
-                                    color = TextSecondary,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                    }
-                }
+            Text(
+                "Version ${app.versionName} (${app.versionCode})",
+                color = TextSecondary,
+                fontSize = 10.sp
+            )
+
+            if (app.isSystemApp) {
+                Text(
+                    "System application",
+                    color = Warning,
+                    fontSize = 10.sp
+                )
             }
         }
+
+        IconButton(
+            enabled = !app.isSystemApp &&
+                app.packageName != context.packageName,
+            onClick = {
+                val intent = Intent(Intent.ACTION_DELETE).apply {
+                    data = Uri.fromParts(
+                        "package",
+                        app.packageName,
+                        null
+                    )
+                }
+
+                uninstallLauncher.launch(intent)
+            }
+        ) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Uninstall ${app.packageName}",
+                tint = Warning
+            )
+        }
+    }
+}
 
         // SHIZUKU / ADB DIAGNOSTICS
         ToolSection(
