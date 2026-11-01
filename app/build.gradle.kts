@@ -61,7 +61,8 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation(libs.androidx.runner)
     implementation(libs.androidx.espresso.core)
-    implementation(libs.androidx.fragment.ktx)
+    implementation("androidx.compose.material:material-icons-extended")
+        implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.datastore.core.android)
     val shizuku_version = "13.1.5"
     implementation("dev.rikka.shizuku:api:$shizuku_version")
