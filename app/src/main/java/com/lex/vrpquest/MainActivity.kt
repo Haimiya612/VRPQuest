@@ -784,7 +784,11 @@ private fun LibraryPage() {
 
             try {
                 val config = MirrorConfigStore.load(context)
-                mirrorConfig = config
+    ?: throw IllegalStateException(
+        "No mirror configuration found. Open Settings first."
+    )
+
+mirrorConfig = config
 
                 games = PublicMirrorRepository.fetchGames(
                     context = context,
